@@ -12,7 +12,7 @@ class CSVImporter:
         df = pd.read_csv(self.filepath)
 
         # convert timestamp to datetime object
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'], infer_datetime_format=True)W
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'], infer_datetime_format=True)
         df['Timestamp'] = df['Timestamp'].dt.tz_localize('UTC').dt.tz_convert('America/New_York')
 
         # sort dataframe with earliest first

@@ -1,1 +1,1 @@
-from trader.data.importers.csv_importer import CSVImporter
+from trader.data.importers.csv_importer import GenericImporter

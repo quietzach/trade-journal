@@ -5,3 +5,4 @@ Markdown==3.2.2
 numpy==1.19.2
 pandas==0.24.2
 robin-stocks==1.5.1
+graphene-django==2.13.0

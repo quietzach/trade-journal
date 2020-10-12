@@ -1,3 +1,6 @@
 from django.contrib import admin
+from trader.models import Ticker, Execution, Trade
 
-# Register your models here.
+admin.site.register(Ticker)
+admin.site.register(Execution)
+admin.site.register(Trade)

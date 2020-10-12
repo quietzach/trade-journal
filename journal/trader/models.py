@@ -22,6 +22,9 @@ class Ticker(models.Model):
     def __str__(self):
         return f'{self.name}'
 
+    class Meta:
+        ordering = ['name']
+
 
 class Execution(models.Model):
     ticker = models.ForeignKey('Ticker', to_field='name', default='NONE', on_delete=models.CASCADE, related_name='executions')
@@ -48,7 +51,7 @@ class Execution(models.Model):
 
         # get latest open trade or create trade if none are open
         open_trades = Trade.objects.filter(ticker=self.ticker, is_open=True).first()
-        self.trade = open_trades if open_trades is not None else Trade.objects.create(ticker=self.ticker)
+        self.trade = open_trades if open_trades is not None else Trade.objects.create(ticker=self.ticker, open_date=self.execution_date)
 
         # update trade details
         self.trade.total_fees += decimal.Decimal(self.fee)
@@ -80,6 +83,7 @@ class Execution(models.Model):
                 self.trade.status = Status.WIN if self.trade.total_pnl > 0 else (
                     Status.LOSS if self.trade.total_pnl < 0 else Status.BE
                 )
+                self.trade.close_date = self.execution_date
 
         # net position
         self.trade.net_position += decimal.Decimal(quantity_with_direction)
@@ -116,6 +120,9 @@ class Execution(models.Model):
                     f'Commissions: {self.commission}' +
                 f']')
 
+    class Meta:
+        ordering = ['execution_date']
+
 
 class Trade(models.Model):
     ticker = models.ForeignKey('Ticker', to_field='name', default='NONE', on_delete=models.CASCADE, related_name='trades')
@@ -123,6 +130,9 @@ class Trade(models.Model):
     avg_open_price = models.DecimalField(default=0, decimal_places=10, max_digits=32)
     avg_close_price = models.DecimalField(default=0, decimal_places=10, max_digits=32)
     net_investment = models.DecimalField(default=0, decimal_places=10, max_digits=32)
+
+    open_date = models.DateTimeField()
+    close_date = models.DateTimeField(null=True)
 
     realized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=32)
     unrealized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=32)
@@ -160,4 +170,9 @@ class Trade(models.Model):
                     f'Status: {Status(self.status).name},' +
                     f'Total Fees: {self.total_fees},' +
                     f'Total Commissions: {self.total_commissions},' +
+                    f'Open Date: {self.open_date},' +
+                    f'Close Date: {self.close_date},' +
                 f']')
+
+    class Meta:
+        ordering = ['open_date']

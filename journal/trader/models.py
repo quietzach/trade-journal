@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import decimal
 import numpy as np
@@ -17,7 +18,7 @@ class Status(models.IntegerChoices):
 
 
 class Ticker(models.Model):
-    name = models.CharField(max_length=8, unique=True)
+    name = models.CharField(max_length=8, unique=True, help_text='Ticker name')
 
     def __str__(self):
         return f'{self.name}'
@@ -28,13 +29,13 @@ class Ticker(models.Model):
 
 class Execution(models.Model):
     ticker = models.ForeignKey('Ticker', to_field='name', default='NONE', on_delete=models.CASCADE, related_name='executions')
-    side = models.IntegerField(choices=Side.choices)
-    traded_price = models.DecimalField(decimal_places=10, max_digits=32)
-    traded_quantity = models.DecimalField(decimal_places=10, max_digits=32)
-    execution_date = models.DateTimeField()
-    fee = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    value = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    commission = models.DecimalField(default=0, decimal_places=10, max_digits=32)
+    side = models.IntegerField(choices=Side.choices, help_text='BUY/SELL Side')
+    traded_price = models.DecimalField(decimal_places=10, max_digits=64, help_text='Executed trade price')
+    traded_quantity = models.DecimalField(decimal_places=10, max_digits=64, help_text='Executed trade quantity')
+    execution_date = models.DateTimeField(help_text='Executed Date/Time')
+    fee = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Executed fee')
+    value = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Executed order value')
+    commission = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Executed commission value')
 
     trade = models.ForeignKey('Trade', on_delete=models.CASCADE, related_name='executions')
 
@@ -47,7 +48,7 @@ class Execution(models.Model):
         # executions from the database to recompute statistics
 
         # update investment value
-        self.value = decimal.Decimal(self.side.value) * decimal.Decimal(self.traded_price) * decimal.Decimal(self.traded_quantity)
+        self.value = -1 * self.side.value * self.traded_price * self.traded_quantity
 
         # get latest open trade or create trade if none are open
         open_trades = Trade.objects.filter(ticker=self.ticker, is_open=True).first()
@@ -59,22 +60,21 @@ class Execution(models.Model):
 
         quantity_with_direction = decimal.Decimal(self.side.value) * decimal.Decimal(self.traded_quantity)
 
-        self.trade.is_open = (decimal.Decimal(self.trade.net_position) * decimal.Decimal(quantity_with_direction)) >= 0
+        self.trade.is_open = self.trade.net_position + quantity_with_direction > 0
 
         # realized pnl
-        if not self.trade.is_open:
+        if not self.trade.is_open and self.trade.net_position != 0: # avoid divide by zero
             # Remember to keep the sign as the net position
             self.trade.realized_pnl += (decimal.Decimal(self.traded_price) - decimal.Decimal(self.trade.avg_open_price)) * decimal.Decimal(
                                             min(abs(quantity_with_direction), abs(self.trade.net_position))
                                         ) * (decimal.Decimal(abs(self.trade.net_position)) / decimal.Decimal(self.trade.net_position))
-
         # total pnl
-        self.trade.total_pnl = decimal.Decimal(self.trade.realized_pnl) + decimal.Decimal(self.trade.unrealized_pnl)
+        self.trade.total_pnl = self.trade.realized_pnl + self.trade.unrealized_pnl
 
         # avg open price
         if self.trade.is_open:
             self.trade.avg_open_price = ((self.trade.avg_open_price * self.trade.net_position) +
-                                         (decimal.Decimal(self.traded_price) * decimal.Decimal(quantity_with_direction)) / (decimal.Decimal(self.trade.net_position) + decimal.Decimal(quantity_with_direction)))
+                                         (decimal.Decimal(self.traded_price) * quantity_with_direction)) / (decimal.Decimal(self.trade.net_position) + quantity_with_direction)
         else:
             # Check if it is close-and-open
             if self.traded_quantity > abs(self.trade.net_position):
@@ -86,7 +86,7 @@ class Execution(models.Model):
                 self.trade.close_date = self.execution_date
 
         # net position
-        self.trade.net_position += decimal.Decimal(quantity_with_direction)
+        self.trade.net_position += quantity_with_direction
 
         # net investment
         self.trade.net_investment = max(decimal.Decimal(self.trade.net_investment), abs(decimal.Decimal(self.trade.net_position) * decimal.Decimal(self.trade.avg_open_price)))
@@ -126,29 +126,35 @@ class Execution(models.Model):
 
 class Trade(models.Model):
     ticker = models.ForeignKey('Ticker', to_field='name', default='NONE', on_delete=models.CASCADE, related_name='trades')
-    net_position = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    avg_open_price = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    avg_close_price = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    net_investment = models.DecimalField(default=0, decimal_places=10, max_digits=32)
+    net_position = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Number of shares')
+    avg_open_price = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Average open price')
+    avg_close_price = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Average close price')
+    net_investment = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Investment value')
 
-    open_date = models.DateTimeField()
-    close_date = models.DateTimeField(null=True)
+    open_date = models.DateTimeField(help_text='Open Date/Time')
+    close_date = models.DateTimeField(null=True, help_text='Close Date/Time')
+    hold_time = models.DurationField(null=True, help_text='Trade hold time')
 
-    realized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    unrealized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    total_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=32)
+    realized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Realized PnL')
+    unrealized_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Unrealized PnL')
+    total_pnl = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Total PnL')
 
-    is_open = models.BooleanField(default=True)
-    max_size = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    status = models.IntegerField(default=Status.OPEN, choices=Status.choices)
-    total_fees = models.DecimalField(default=0, decimal_places=10, max_digits=32)
-    total_commissions = models.DecimalField(default=0, decimal_places=10, max_digits=32)
+    is_open = models.BooleanField(default=True, help_text='IsTrade Open')
+    max_size = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Maximum share size')
+    status = models.IntegerField(default=Status.OPEN, choices=Status.choices, help_text='Trade result')
+    total_fees = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Total trade fees')
+    total_commissions = models.DecimalField(default=0, decimal_places=10, max_digits=64, help_text='Total trade commissions')
 
     def save(self, *args, **kwargs):
 
         # compute average close price if trade is closed
         if not self.is_open:
             self.avg_close_price = decimal.Decimal(np.mean([ex.traded_price for ex in self.executions.filter(side=Side.SELL)]))
+
+            # update hold time
+            if self.close_date:
+                current_tz = timezone.get_current_timezone()
+                self.hold_time = current_tz.normalize(self.close_date) - current_tz.normalize(self.open_date)
 
         # save model
         instance = super(Trade, self).save(*args, **kwargs)

@@ -40,7 +40,7 @@ class TradeSecondarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Trade
         fields = ['net_position', 'avg_open_price', 'avg_close_price', 'net_investment',
-                  'open_date', 'close_date', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
+                  'open_date', 'close_date', 'hold_time', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
                   'max_size', 'status', 'total_fees', 'total_commissions']
 
 
@@ -74,5 +74,5 @@ class TradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trade
         fields = ['ticker', 'net_position', 'avg_open_price', 'avg_close_price', 'net_investment',
-                  'open_date', 'close_date', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
+                  'open_date', 'close_date', 'hold_time', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
                   'max_size', 'status', 'total_fees', 'total_commissions', 'executions']

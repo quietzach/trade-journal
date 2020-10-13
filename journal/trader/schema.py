@@ -12,7 +12,7 @@ class TickerType(DjangoObjectType):
         fields = ('name', 'trades', 'executions')
         # django filters
         filter_fields = ('name', 'trades', 'executions')
-        interfaces = (Node,)
+        # interfaces = (Node,)
 
 
 class ExecutionType(DjangoObjectType):
@@ -29,26 +29,30 @@ class ExecutionType(DjangoObjectType):
         # django filters
         filter_fields = ('ticker', 'side', 'traded_price', 'traded_quantity', 'execution_date',
                   'fee', 'value', 'commission', 'trade')
-        interfaces = (Node,)
+        # interfaces = (Node,)
 
 
 class TradeType(DjangoObjectType):
     # override side with enum string
     status = graphene.String()
+    hold_time = graphene.Field(type=graphene.Int, required=False, description='Hold-time in seconds')
 
     def resolve_status(self, info):
         return Status(self.status).name
 
+    def resolve_hold_time(self, info):
+        return self.hold_time.total_seconds() if self.hold_time is not None else self.hold_time
+
     class Meta:
         model = Trade
         fields = ('ticker', 'net_position', 'avg_open_price', 'avg_close_price', 'net_investment',
-                  'open_date', 'close_date', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
+                  'open_date', 'close_date', 'hold_time', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
                   'max_size', 'status', 'total_fees', 'total_commissions', 'executions')
         # django filters
         filter_fields = ('ticker', 'net_position', 'avg_open_price', 'avg_close_price', 'net_investment',
-                  'open_date', 'close_date', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
+                  'open_date', 'close_date', 'hold_time', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
                   'max_size', 'status', 'total_fees', 'total_commissions', 'executions')
-        interfaces = (Node,)
+        # interfaces = (Node,)
 
 
 class Query(graphene.ObjectType):

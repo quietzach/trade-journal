@@ -34,7 +34,7 @@ class ExecutionType(DjangoObjectType):
 
 class TradeType(DjangoObjectType):
     # override side with enum string
-    status = graphene.String()
+    status = graphene.Field(type=graphene.String, required=False, description='Trade status')
     hold_time = graphene.Field(type=graphene.Int, required=False, description='Hold-time in seconds')
 
     def resolve_status(self, info):
@@ -61,11 +61,13 @@ class Query(graphene.ObjectType):
                                 name=graphene.String(required=False, description='Ticker Name')
                                 )
     all_executions = graphene.List(ExecutionType,
-                                   side=graphene.String(required=False, description='Execution Side: (BUY/SELL)')
+                                   side=graphene.String(required=False, description='Execution Side: (BUY/SELL)'),
+                                   ticker=graphene.String(required=False, description='Ticker name')
                                    )
     all_trades = graphene.List(TradeType,
                                is_open=graphene.Boolean(required=False, description='Open Trades'),
-                               status=graphene.String(required=False, description='Trade Status: (OPEN/BE/WIN/LOSS)')
+                               status=graphene.String(required=False, description='Trade Status: (OPEN/BE/WIN/LOSS)'),
+                               ticker=graphene.String(required=False, description='Ticker name')
                                )
 
     # DjangoFilterConnectionField applies django_filters with standard edges and nodes
@@ -80,16 +82,24 @@ class Query(graphene.ObjectType):
     def resolve_all_tickers(root, info, name=None):
         return Ticker.objects.filter(name=name).all() if name is not None else Ticker.objects.all()
 
-    def resolve_all_executions(root, info, side=None):
+    def resolve_all_executions(root, info, side=None, ticker=None):
         side_dict = {s[1]: s[0] for s in Side.choices}
-        return Execution.objects.filter(side=side_dict[side.upper()]).all() if side is not None else Execution.objects.all()
+        ret = Execution.objects.filter(side=side_dict[side.upper()]).all() if side is not None else Execution.objects.all()
 
-    def resolve_all_trades(root, info, is_open=None, status=None):
+        if ticker:
+            ret = ret.filter(ticker__name=ticker.upper()).all()
+
+        return ret
+
+    def resolve_all_trades(root, info, is_open=None, status=None, ticker=None):
         status_dict = {s[1]: s[0] for s in Status.choices}
         ret = Trade.objects.filter(is_open=is_open).all() if is_open is not None else Trade.objects.all()
 
-        if status is not None:
+        if status:
             ret = ret.filter(status=status_dict[status.upper()]).all()
+
+        if ticker:
+            ret = ret.filter(ticker__name=ticker.upper()).all()
 
         return ret
 

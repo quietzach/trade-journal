@@ -48,9 +48,6 @@ class RobinhoodLoginView(APIView):
             # return Response(serializer.data, status=status.HTTP_201_CREATED)
             username = serializer.validated_data['username']
             password = serializer.validated_data['password']
-            print(f'Logging in')
-            print(f'Username: {username}')
-            print(f'Password: {password}')
             response = robinhood_importer.login(username, password)
             if 'detail' in response['login_response']:
                 return Response({
@@ -74,27 +71,19 @@ class RobinhoodLogin2FAView(APIView):
             username = serializer.validated_data['username']
             password = serializer.validated_data['password']
             code = serializer.validated_data['code']
-            # payload = serializer.validated_data['payload']
             device_token = serializer.validated_data['device_token']
-            print(f'2FA Code')
-            print(f'Username: {username}')
-            print(f'Password: {password}')
-            print(f'Code: {code}')
-            # print(f'Payload: {payload}')
-            print(f'Token: {device_token}')
 
             # response = robinhood_importer.respond_challenge(payload, code)
             response = robinhood_importer.respond_challenge(username, password, device_token, code)
-            print(f'Response: {response}')
 
             if response['status'] != 'Success':
                 return Response({
                     'status': 'Login Received',
-                    'message': response['status']
+                    'message': response['status'],
                 }, status=status.HTTP_401_UNAUTHORIZED)
             else:
                 return Response({
                     'status': 'Login Received',
-                    'message': response
+                    'message': response,
                 }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

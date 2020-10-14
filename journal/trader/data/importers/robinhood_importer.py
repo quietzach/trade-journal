@@ -16,7 +16,7 @@ def import_orders():
 
     clean_orders = []
     for order in orders:
-        filled = float(order['cumulative_quantity'])
+        # filled = float(order['cumulative_quantity'])
         if len(order['executions']) > 0:
             instrument = r.helper.request_get(order['instrument'])
             symbol = instrument['symbol']
@@ -36,7 +36,6 @@ def import_orders():
                 'Fee': fees,
                 'Type': 'SHARE'
             })
-    #         print(f'Symbol: {symbol}, Side: {side}, Fees: {fees}, Price: {price}, Quantity: {quantity}, Timestamp: {timestamp}')
 
     rh_executions = pd.DataFrame(clean_orders,
                                  columns=['Timestamp', 'Symbol', 'Quantity', 'Price',
@@ -45,9 +44,9 @@ def import_orders():
     # import data
     importer = GenericImporter()
     importer.load_dataframe(rh_executions)
-    importer.import_data()
+    update_results = importer.import_data()
 
-    return True
+    return update_results
 
 
 def login(username, password, expiresIn=86400, scope='internal', by_sms=True):
@@ -106,6 +105,8 @@ def respond_challenge(username, password, device_token, mfa_token=None, sms_code
         'status': "Success"
     }
 
+    success = False
+
     # Handle case where mfa or challenge is required.
     if data:
         if 'mfa_required' in data:
@@ -122,6 +123,7 @@ def respond_challenge(username, password, device_token, mfa_token=None, sms_code
             helper.update_session('Authorization', token)
             helper.set_login_state(True)
             data['detail'] = "Logged in with brand new authentication code."
+            success = True
         else:
             response['status'] = data['detail']
             # raise Exception(data['detail'])
@@ -131,6 +133,10 @@ def respond_challenge(username, password, device_token, mfa_token=None, sms_code
 
 
     # import orders
-    import_orders()
+    if success:
+        update_results = import_orders()
+        response['updates'] = update_results
+    else:
+        response['updates'] = None
 
     return response

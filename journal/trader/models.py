@@ -48,7 +48,7 @@ class Execution(models.Model):
         # executions from the database to recompute statistics
 
         # update investment value
-        self.value = -1 * self.side.value * self.traded_price * self.traded_quantity
+        self.value = decimal.Decimal(-1) * decimal.Decimal(self.side.value) * decimal.Decimal(self.traded_price) * decimal.Decimal(self.traded_quantity)
 
         # get latest open trade or create trade if none are open
         open_trades = Trade.objects.filter(ticker=self.ticker, is_open=True).first()
@@ -77,7 +77,7 @@ class Execution(models.Model):
                                          (decimal.Decimal(self.traded_price) * quantity_with_direction)) / (decimal.Decimal(self.trade.net_position) + quantity_with_direction)
         else:
             # Check if it is close-and-open
-            if self.traded_quantity > abs(self.trade.net_position):
+            if decimal.Decimal(self.traded_quantity) > decimal.Decimal(abs(self.trade.net_position)):
                 self.trade.avg_open_price = self.traded_price
             else:
                 self.trade.status = Status.WIN if self.trade.total_pnl > 0 else (

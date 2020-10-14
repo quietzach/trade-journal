@@ -76,3 +76,15 @@ class TradeSerializer(serializers.ModelSerializer):
         fields = ['ticker', 'net_position', 'avg_open_price', 'avg_close_price', 'net_investment',
                   'open_date', 'close_date', 'hold_time', 'realized_pnl', 'unrealized_pnl', 'total_pnl', 'is_open',
                   'max_size', 'status', 'total_fees', 'total_commissions', 'executions']
+
+
+class RobinhoodLoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True, allow_blank=False, max_length=100)
+    password = serializers.CharField(required=True, allow_blank=False, max_length=100)
+
+
+class RobinhoodLogin2FASerializer(serializers.Serializer):
+    username = serializers.CharField(required=True, allow_blank=False, max_length=100)
+    password = serializers.CharField(required=True, allow_blank=False, max_length=100)
+    device_token = serializers.CharField(required=True, allow_blank=False, max_length=100)
+    code = serializers.CharField(required=True, allow_blank=False, max_length=16)
